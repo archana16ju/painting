@@ -1,0 +1,48 @@
+{
+  "name": "paint-billing-software",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paint Shop Billing & POS ERP System",
+  "author": "Paint Billing Software",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paint/billing-software"
+  },
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev -p 3050",
+    "build": "next build",
+    "start": "next start -p 3050",
+    "lint": "eslint",
+    "electron:dev": "concurrently \"next dev -p 3050\" \"wait-on http://localhost:3050 && electron .\"",
+    "electron:build": "next build && electron-builder"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.105.3",
+    "better-sqlite3": "^13.0.3",
+    "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^1.46.0",
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.0.2",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "wait-on": "^9.1.0"
+  }
+}

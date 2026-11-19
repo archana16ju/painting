@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.paint.billing",
+  "productName": "Paint Billing ERP",
+  "copyright": "Copyright © 2026 Paint Billing ERP",
+  "npmRebuild": false,
+  "asar": false,
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "**/*",
+    "!dist/**/*",
+    "!node_modules/next/dist/docs/**/*",
+    "!.next/cache/**/*",
+    "!.next/dev/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "node.exe",
+      "to": "node.exe"
+    }
+  ],
+  "extraMetadata": {
+    "main": "electron/main.js"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Paint Billing ERP"
+  },
+  "publish": [
+    {
+      "provider": "generic",
+      "url": "https://example.com/downloads"
+    }
+  ]
+}
