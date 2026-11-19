@@ -10,6 +10,7 @@ import EditContractorModal from '@/components/EditContractorModal';
 import AddProductModal from '@/components/AddProductModal';
 import EditProductModal from '@/components/EditProductModal';
 import ManageCategoriesBrandsModal from '@/components/ManageCategoriesBrandsModal';
+import BulkUploadModal from '@/components/BulkUploadModal';
 import {
   Search,
   ShoppingCart,
@@ -39,6 +40,7 @@ import {
   FolderPlus,
   Pencil,
   Phone,
+  Upload,
 } from 'lucide-react';
 
 const BRANDS: (PaintBrand | 'ALL')[] = [
@@ -149,6 +151,7 @@ export default function TerminalPage() {
   const [isEditContractorOpen, setIsEditContractorOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<any>(null);
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const handleEditProduct = (prod: Product) => {
     setEditingProduct(prod);
@@ -455,6 +458,17 @@ export default function TerminalPage() {
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Product</span>
+            </button>
+
+            {/* Bulk CSV Upload Button */}
+            <button
+              type="button"
+              onClick={() => setIsBulkUploadOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition shadow-2xs whitespace-nowrap active:scale-98"
+              title="Bulk Import Products via CSV"
+            >
+              <Upload className="w-4 h-4 text-indigo-600" />
+              <span className="hidden sm:inline">Bulk CSV</span>
             </button>
 
             {/* View Switcher: Grid vs Table */}
@@ -1192,6 +1206,17 @@ export default function TerminalPage() {
         contractor={editingContractor}
         onContractorUpdated={() => {
           fetchContractors();
+        }}
+      />
+
+      {/* Bulk Product Upload Modal */}
+      <BulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => {
+          fetchProducts();
+          fetchCategories();
+          fetchBrands();
         }}
       />
     </div>

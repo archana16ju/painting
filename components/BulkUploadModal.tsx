@@ -1,0 +1,467 @@
+'use client';
+
+import React, { useState, useRef } from 'react';
+import {
+  X,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
+
+interface BulkUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export default function BulkUploadModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: BulkUploadModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  if (!isOpen) return null;
+
+  // CSV Template Generator
+  const downloadSampleCsv = () => {
+    const headers = [
+      'Brand',
+      'ProductName',
+      'Category',
+      'PackSize',
+      'CostPrice',
+      'RetailPrice',
+      'ContractorPrice',
+      'WholesalePrice',
+      'MRP',
+      'HSNCode',
+      'TaxRate',
+      'StockQty',
+      'MinStockAlert',
+      'Barcode',
+      'Description',
+    ];
+
+    const sampleRows = [
+      [
+        'Surfa Coats',
+        'Ultra Shield Base Coat',
+        'Exterior Emulsion',
+        '20 L',
+        '5221',
+        '6370',
+        '5743',
+        '5534',
+        '7050',
+        '3209',
+        '18',
+        '20',
+        '3',
+        '890881000101',
+        'Weatherproof exterior base coat',
+      ],
+      [
+        'Surfa Coats',
+        'Ultra Shield Base Coat',
+        'Exterior Emulsion',
+        '4 L',
+        '1144',
+        '1396',
+        '1258',
+        '1213',
+        '1545',
+        '3209',
+        '18',
+        '30',
+        '5',
+        '890881000102',
+        'Weatherproof exterior base coat',
+      ],
+      [
+        'Arun & Tia',
+        'Brush Arun 4"',
+        'Hardware & Tools',
+        '4"',
+        '199.83',
+        '244',
+        '220',
+        '212',
+        '270',
+        '9603',
+        '18',
+        '50',
+        '5',
+        '890881000201',
+        'High quality bristle brush',
+      ],
+      [
+        'Arun & Tia',
+        'Roller Tia T0001 (Interior Roller)',
+        'Hardware & Tools',
+        '1 Pc',
+        '147.37',
+        '180',
+        '162',
+        '156',
+        '199',
+        '9603',
+        '18',
+        '40',
+        '4',
+        '890881000202',
+        'Interior paint roller with handle',
+      ],
+      [
+        'Pilot',
+        'Pilot Mineral Turpentine Oil (MTO)',
+        'Thinners & Solvents',
+        '1 L',
+        '90',
+        '110',
+        '99',
+        '95',
+        '125',
+        '2710',
+        '18',
+        '60',
+        '10',
+        '890881000301',
+        'Pure solvent paint thinner',
+      ],
+    ];
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...sampleRows.map((r) => r.map((f) => `"${f}"`).join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'paint_products_bulk_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const parseCsvText = (text: string) => {
+    const lines = text
+      .split(/\r\n|\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length < 2) return [];
+
+    const parseLine = (line: string) => {
+      const result: string[] = [];
+      let cur = '';
+      let insideQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"' || char === "'") {
+          insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+          result.push(cur.trim());
+          cur = '';
+        } else {
+          cur += char;
+        }
+      }
+      result.push(cur.trim());
+      return result;
+    };
+
+    const headers = parseLine(lines[0]).map((h) => h.replace(/["']/g, '').trim());
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseLine(lines[i]).map((v) => v.replace(/^["']|["']$/g, '').trim());
+      if (values.length === 0 || (values.length === 1 && !values[0])) continue;
+
+      const rowObj: any = {};
+      headers.forEach((h, index) => {
+        rowObj[h] = values[index] || '';
+      });
+      rows.push(rowObj);
+    }
+
+    return rows;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvFile(file);
+    setUploadResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const rows = parseCsvText(content);
+      setParsedRows(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkUpload = async () => {
+    if (parsedRows.length === 0) return;
+    setUploading(true);
+    setUploadResult(null);
+
+    try {
+      const res = await fetch('/api/products/bulk-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: parsedRows }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUploadResult({
+          success: true,
+          message: data.message || `Successfully imported ${data.importedCount} products!`,
+        });
+        setCsvFile(null);
+        setParsedRows([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (onSuccess) onSuccess();
+      } else {
+        setUploadResult({
+          success: false,
+          message: data.error || 'Failed to import products',
+        });
+      }
+    } catch (err: any) {
+      setUploadResult({
+        success: false,
+        message: err.message || 'Error uploading file',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95">
+        {/* Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+              Bulk Product Upload (CSV)
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Add single or multiple paint products, pack sizes, stock quantities, and 3-tier prices at once.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+          {/* Action Row: Sample Download */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
+            <div>
+              <span className="text-xs font-bold text-indigo-900">Need the exact CSV format?</span>
+              <p className="text-[11px] text-indigo-700">Download the pre-filled template with sample rows.</p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadSampleCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-lg transition shadow-2xs self-start sm:self-auto"
+            >
+              <Download className="w-3.5 h-3.5" /> Download Sample CSV
+            </button>
+          </div>
+
+          {/* Columns Chips */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-slate-700">CSV Column Structure:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { name: 'Brand', req: true },
+                { name: 'ProductName', req: true },
+                { name: 'Category', req: true },
+                { name: 'PackSize', req: true },
+                { name: 'CostPrice', req: true },
+                { name: 'RetailPrice', req: false },
+                { name: 'ContractorPrice', req: false },
+                { name: 'WholesalePrice', req: false },
+                { name: 'MRP', req: false },
+                { name: 'HSNCode', req: false },
+                { name: 'TaxRate', req: false },
+                { name: 'StockQty', req: false },
+                { name: 'MinStockAlert', req: false },
+                { name: 'Barcode', req: false },
+                { name: 'Description', req: false },
+              ].map((col) => (
+                <span
+                  key={col.name}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                    col.req
+                      ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {col.name}
+                  {col.req && <span className="text-red-500 font-bold ml-0.5">*</span>}
+                </span>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 italic">
+              * Note: If RetailPrice, ContractorPrice, WholesalePrice, or MRP are left blank, they are auto-calculated from CostPrice using standard margins.
+            </p>
+          </div>
+
+          {/* File Dropzone */}
+          <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-indigo-400 transition bg-slate-50/50">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+              className="hidden"
+              id="modal-csv-upload"
+            />
+            <label
+              htmlFor="modal-csv-upload"
+              className="cursor-pointer flex flex-col items-center justify-center space-y-1.5"
+            >
+              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-full">
+                <Upload className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-bold text-slate-800">
+                {csvFile ? csvFile.name : 'Select or drop your CSV file here'}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {csvFile
+                  ? `${(csvFile.size / 1024).toFixed(1)} KB — ${parsedRows.length} rows detected`
+                  : 'Click to choose file (.csv)'}
+              </span>
+            </label>
+          </div>
+
+          {/* Status Message */}
+          {uploadResult && (
+            <div
+              className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 border ${
+                uploadResult.success
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-red-50 text-red-800 border-red-300'
+              }`}
+            >
+              {uploadResult.success ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              )}
+              <span>{uploadResult.message}</span>
+            </div>
+          )}
+
+          {/* Table Preview */}
+          {parsedRows.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Preview ({parsedRows.length} rows):</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParsedRows([]);
+                    setCsvFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="text-[11px] text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="overflow-x-auto max-h-48 border border-slate-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 sticky top-0 font-bold border-b text-[11px]">
+                    <tr>
+                      <th className="p-2">Brand</th>
+                      <th className="p-2">Product Name</th>
+                      <th className="p-2">Category</th>
+                      <th className="p-2">Pack</th>
+                      <th className="p-2">Cost (₹)</th>
+                      <th className="p-2">Retail (₹)</th>
+                      <th className="p-2">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px]">
+                    {parsedRows.slice(0, 10).map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="p-2 font-medium">{row.Brand || row.brand || '-'}</td>
+                        <td className="p-2 font-bold text-slate-900">
+                          {row.ProductName || row.product_name || row.name || '-'}
+                        </td>
+                        <td className="p-2 text-slate-600">{row.Category || row.category || '-'}</td>
+                        <td className="p-2 font-mono">{row.PackSize || row.pack_size || '-'}</td>
+                        <td className="p-2 font-mono">₹{row.CostPrice || row.cost_price || '0'}</td>
+                        <td className="p-2 font-mono text-emerald-700 font-bold">
+                          ₹{row.RetailPrice || row.retail_price || 'Auto'}
+                        </td>
+                        <td className="p-2">{row.StockQty || row.stock_qty || '20'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {parsedRows.length > 10 && (
+                <div className="text-[10px] text-slate-400 text-center">
+                  + {parsedRows.length - 10} more rows
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-bold transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBulkUpload}
+            disabled={uploading || parsedRows.length === 0}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-50"
+          >
+            {uploading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" /> Importing {parsedRows.length} items...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" /> Import {parsedRows.length || 0} Products Now
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
