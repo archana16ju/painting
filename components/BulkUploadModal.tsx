@@ -33,125 +33,9 @@ export default function BulkUploadModal({
 
   if (!isOpen) return null;
 
-  // CSV Template Generator
-  const downloadSampleCsv = () => {
-    const headers = [
-      'Brand',
-      'ProductName',
-      'Category',
-      'PackSize',
-      'CostPrice',
-      'RetailPrice',
-      'ContractorPrice',
-      'WholesalePrice',
-      'MRP',
-      'HSNCode',
-      'TaxRate',
-      'StockQty',
-      'MinStockAlert',
-      'Barcode',
-      'Description',
-    ];
-
-    const sampleRows = [
-      [
-        'Surfa Coats',
-        'Ultra Shield Base Coat',
-        'Exterior Emulsion',
-        '20 L',
-        '5221',
-        '6370',
-        '5743',
-        '5534',
-        '7050',
-        '3209',
-        '18',
-        '20',
-        '3',
-        '890881000101',
-        'Weatherproof exterior base coat',
-      ],
-      [
-        'Surfa Coats',
-        'Ultra Shield Base Coat',
-        'Exterior Emulsion',
-        '4 L',
-        '1144',
-        '1396',
-        '1258',
-        '1213',
-        '1545',
-        '3209',
-        '18',
-        '30',
-        '5',
-        '890881000102',
-        'Weatherproof exterior base coat',
-      ],
-      [
-        'Arun & Tia',
-        'Brush Arun 4"',
-        'Hardware & Tools',
-        '4"',
-        '199.83',
-        '244',
-        '220',
-        '212',
-        '270',
-        '9603',
-        '18',
-        '50',
-        '5',
-        '890881000201',
-        'High quality bristle brush',
-      ],
-      [
-        'Arun & Tia',
-        'Roller Tia T0001 (Interior Roller)',
-        'Hardware & Tools',
-        '1 Pc',
-        '147.37',
-        '180',
-        '162',
-        '156',
-        '199',
-        '9603',
-        '18',
-        '40',
-        '4',
-        '890881000202',
-        'Interior paint roller with handle',
-      ],
-      [
-        'Pilot',
-        'Pilot Mineral Turpentine Oil (MTO)',
-        'Thinners & Solvents',
-        '1 L',
-        '90',
-        '110',
-        '99',
-        '95',
-        '125',
-        '2710',
-        '18',
-        '60',
-        '10',
-        '890881000301',
-        'Pure solvent paint thinner',
-      ],
-    ];
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...sampleRows.map((r) => r.map((f) => `"${f}"`).join(','))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'paint_products_bulk_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Download complete bulk upload CSV with all 785 products from PDF
+  const downloadAllProductsCsv = () => {
+    window.location.href = '/api/products/export-csv';
   };
 
   const parseCsvText = (text: string) => {
@@ -275,18 +159,23 @@ export default function BulkUploadModal({
 
         {/* Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* Action Row: Sample Download */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl">
+          {/* Action Row: Full Catalog Download & Template */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl">
             <div>
-              <span className="text-xs font-bold text-indigo-900">Need the exact CSV format?</span>
-              <p className="text-[11px] text-indigo-700">Download the pre-filled template with sample rows.</p>
+              <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                Complete Bulk Upload CSV with All PDF Products
+              </span>
+              <p className="text-[11px] text-indigo-700 mt-0.5">
+                Contains all 785 SKUs from your PDFs (Surfa Coats, Arun & Tia, JK Cement, Thinners, etc.) ready for clients or re-upload.
+              </p>
             </div>
             <button
               type="button"
-              onClick={downloadSampleCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-lg transition shadow-2xs self-start sm:self-auto"
+              onClick={downloadAllProductsCsv}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-xs whitespace-nowrap self-start sm:self-auto cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" /> Download Sample CSV
+              <Download className="w-3.5 h-3.5" /> Download Full CSV (785 Items)
             </button>
           </div>
 

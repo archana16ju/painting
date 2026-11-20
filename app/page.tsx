@@ -708,10 +708,13 @@ export default function TerminalPage() {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                       <th className="py-2.5 px-4">Product Name & Line</th>
-                      <th className="py-2.5 px-3">Brand</th>
-                      <th className="py-2.5 px-3">Category</th>
+                      {selectedCategory === 'ALL' && (
+                        <>
+                          <th className="py-2.5 px-3">Brand</th>
+                          <th className="py-2.5 px-3">Category</th>
+                        </>
+                      )}
                       <th className="py-2.5 px-3 text-center">Pack Size</th>
-                      <th className="py-2.5 px-3 text-center">Stock</th>
                       <th className="py-2.5 px-3 text-right">Rate</th>
                       <th className="py-2.5 px-4 text-right">Add</th>
                     </tr>
@@ -734,7 +737,14 @@ export default function TerminalPage() {
                           <td className="py-2 px-4">
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <div className="font-bold text-slate-900">{product.name}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900">{product.name}</span>
+                                  {selectedCategory !== 'ALL' && product.brand && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                      {product.brand}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-[10px] text-slate-400 font-mono">HSN: {product.hsnCode}</div>
                               </div>
                               {isEditMode && (
@@ -749,18 +759,33 @@ export default function TerminalPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-2 px-3 font-semibold text-slate-700">{product.brand}</td>
-                          <td className="py-2 px-3 text-slate-500">{product.category}</td>
-                          <td className="py-2 px-3 text-center font-mono font-bold text-slate-800">
-                            <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+
+                          {/* Brand & Category only shown in All Products menu */}
+                          {selectedCategory === 'ALL' && (
+                            <>
+                              <td className="py-2 px-3 font-semibold text-slate-700">{product.brand}</td>
+                              <td className="py-2 px-3 text-slate-500">{product.category}</td>
+                            </>
+                          )}
+
+                          {/* Pack Size with Stock count directly under it */}
+                          <td className="py-2 px-3 text-center font-mono">
+                            <span className="bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200 font-bold text-slate-800 whitespace-nowrap inline-block text-xs">
                               {pack.packSize}
                             </span>
-                          </td>
-                          <td className="py-2 px-3 text-center font-mono text-slate-600 text-xs whitespace-nowrap">
-                            <span className={isOutOfStock ? 'text-rose-600 font-bold' : isLowStock ? 'text-amber-600 font-semibold' : 'text-slate-600'}>
+                            <div
+                              className={`text-[10px] font-medium mt-0.5 whitespace-nowrap ${
+                                isOutOfStock
+                                  ? 'text-rose-600 font-bold'
+                                  : isLowStock
+                                  ? 'text-amber-600 font-semibold'
+                                  : 'text-slate-500'
+                              }`}
+                            >
                               {isOutOfStock ? '0 in stock' : `${pack.stockQty} in stock`}
-                            </span>
+                            </div>
                           </td>
+
                           <td className="py-2 px-3 text-right font-mono font-extrabold text-xs sm:text-sm text-indigo-700 whitespace-nowrap">
                             ₹{activePrice.toLocaleString('en-IN')}
                           </td>
