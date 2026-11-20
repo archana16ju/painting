@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { usePaintTerminalStore, PriceTier } from '@/store/usePaintTerminalStore';
 import { Product, PaintBrand, ProductCategory } from '@/types/paint';
 import AddCategoryModal from '@/components/AddCategoryModal';
@@ -140,11 +140,20 @@ export default function TerminalPage() {
   const [editingContractor, setEditingContractor] = useState<any>(null);
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditProduct = (prod: Product) => {
     setEditingProduct(prod);
     setIsEditProductOpen(true);
   };
+
+  // Automatically place cursor in search bar whenever a category is selected
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 30);
+    return () => clearTimeout(timer);
+  }, [selectedCategory]);
 
   useEffect(() => {
     fetchProducts();
@@ -321,7 +330,10 @@ export default function TerminalPage() {
           {/* All Products shortcut */}
           <button
             type="button"
-            onClick={() => setSelectedCategory('ALL')}
+            onClick={() => {
+              setSelectedCategory('ALL');
+              searchInputRef.current?.focus();
+            }}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition text-left ${
               selectedCategory === 'ALL'
                 ? 'bg-indigo-600 text-white shadow-xs'
@@ -350,7 +362,10 @@ export default function TerminalPage() {
               <button
                 key={cat.id || cat.name}
                 type="button"
-                onClick={() => setSelectedCategory(cat.name)}
+                onClick={() => {
+                  setSelectedCategory(cat.name);
+                  searchInputRef.current?.focus();
+                }}
                 className={`w-full group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition text-left ${
                   isSelected
                     ? 'bg-indigo-600 text-white shadow-xs'
@@ -421,6 +436,7 @@ export default function TerminalPage() {
             <div className="flex-1 relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Scan barcode or search product name / pack size... (Press F1 for shade)"
                 value={search}
@@ -684,8 +700,8 @@ export default function TerminalPage() {
                       </span>
                     </div>
 
-                    {/* Row 3: Pack Sizes under Product Info */}
-                    <div className="flex items-center gap-2 flex-wrap pt-0.5 border-t border-slate-100">
+                    {/* Row 3: Pack Sizes under Product Info - Exactly 4 in one row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
                       {product.packSizes && product.packSizes.length > 0 ? (
                         product.packSizes.map((pack) => {
                           let activePrice = pack.retailPrice;
@@ -698,11 +714,11 @@ export default function TerminalPage() {
                           return (
                             <div
                               key={pack.id}
-                              className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 rounded-lg transition"
+                              className="flex items-center justify-between gap-1.5 p-2 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 rounded-lg transition shadow-2xs min-w-0"
                             >
-                              <div className="leading-tight">
+                              <div className="leading-tight min-w-0 truncate">
                                 <div className="flex items-center gap-1.5 font-mono">
-                                  <span className="font-bold text-xs text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                  <span className="font-bold text-xs text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate">
                                     {pack.packSize}
                                   </span>
                                   <span className="font-black text-xs text-indigo-700 whitespace-nowrap">
@@ -710,12 +726,12 @@ export default function TerminalPage() {
                                   </span>
                                 </div>
                                 <span
-                                  className={`text-[9px] block font-medium mt-0.5 ${
+                                  className={`text-[9px] block font-medium mt-0.5 truncate ${
                                     isOutOfStock
                                       ? 'text-rose-600 font-bold'
                                       : isLowStock
                                       ? 'text-amber-600'
-                                      : 'text-slate-400'
+                                      : 'text-slate-500'
                                   }`}
                                 >
                                   {isOutOfStock ? '0 in stock' : `${pack.stockQty} in stock`}
