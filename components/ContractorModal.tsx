@@ -3,19 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { usePaintTerminalStore } from '@/store/usePaintTerminalStore';
 import { Contractor } from '@/types/paint';
-import { X, Search, Check, UserCheck, Phone, ShieldAlert, Plus, Pencil } from 'lucide-react';
-import AddContractorModal from '@/components/AddContractorModal';
-import EditContractorModal from '@/components/EditContractorModal';
+import { X, Search, Check, UserCheck, Phone, ShieldAlert } from 'lucide-react';
 
 export default function ContractorModal() {
-  const { isContractorModalOpen, closeContractorModal, setSelectedContractor, selectedContractor, isEditMode } =
+  const { isContractorModalOpen, closeContractorModal, setSelectedContractor, selectedContractor } =
     usePaintTerminalStore();
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     if (isContractorModalOpen) {
@@ -77,13 +72,6 @@ export default function ContractorModal() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsAddOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-sm cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>+ Add Contractor</span>
-            </button>
             <button onClick={closeContractorModal} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
               <X className="w-5 h-5" />
             </button>
@@ -159,21 +147,6 @@ export default function ContractorModal() {
                         Limit: ₹{c.creditLimit.toLocaleString('en-IN')}
                       </div>
                     </div>
-
-                    {isEditMode && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingContractor(c);
-                          setIsEditOpen(true);
-                        }}
-                        className="p-2 text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition cursor-pointer"
-                        title="Edit Contractor Profile"
-                      >
-                        <Pencil className="w-4 h-4 text-amber-700" />
-                      </button>
-                    )}
                   </div>
                 </div>
               );
@@ -181,28 +154,6 @@ export default function ContractorModal() {
           )}
         </div>
       </div>
-
-      {/* Add Contractor Sub-Modal */}
-      <AddContractorModal
-        isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        onContractorAdded={() => {
-          fetchContractors();
-        }}
-      />
-
-      {/* Edit Contractor Sub-Modal */}
-      <EditContractorModal
-        isOpen={isEditOpen}
-        onClose={() => {
-          setIsEditOpen(false);
-          setEditingContractor(null);
-        }}
-        contractor={editingContractor}
-        onContractorUpdated={() => {
-          fetchContractors();
-        }}
-      />
     </div>
   );
 }

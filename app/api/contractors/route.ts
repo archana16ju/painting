@@ -97,3 +97,22 @@ export async function PUT(req: Request) {
   }
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Contractor ID is required' }, { status: 400 });
+    }
+
+    const db = getDatabase();
+    db.prepare('DELETE FROM contractors WHERE id = ?').run(id);
+
+    return NextResponse.json({ success: true, message: 'Contractor deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting contractor:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+

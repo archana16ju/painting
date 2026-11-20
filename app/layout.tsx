@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Link from 'next/link';
 import { Paintbrush, ShoppingCart, Users, Palette, BarChart3, Settings } from 'lucide-react';
-import EditModeButton from '@/components/EditModeButton';
 import ShadeModal from '@/components/ShadeModal';
 import ContractorModal from '@/components/ContractorModal';
 import EstimatorModal from '@/components/EstimatorModal';
@@ -20,10 +19,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="bg-slate-100 text-slate-900 min-h-screen flex flex-col font-sans antialiased">
+    <html lang="en" className="h-full overflow-hidden">
+      <body className="bg-slate-100 text-slate-900 h-screen w-screen overflow-hidden flex flex-col font-sans antialiased">
         {/* Top App Header */}
-        <header className="bg-slate-900 text-white border-b border-slate-800 shrink-0 no-print">
+        <header className="bg-slate-900 text-white border-b border-slate-800 shrink-0 no-print z-20">
           <div className="flex items-center justify-between px-4 py-2.5">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center shadow-md">
@@ -67,11 +66,6 @@ export default function RootLayout({
               >
                 <Settings className="w-4 h-4 text-slate-400" /> Store Settings
               </Link>
-
-              {/* Edit Mode Toggle Button */}
-              <div className="ml-1 pl-2 border-l border-slate-700">
-                <EditModeButton />
-              </div>
             </nav>
 
             {/* Quick Status */}
@@ -84,7 +78,7 @@ export default function RootLayout({
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 flex overflow-hidden">{children}</main>
+        <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">{children}</main>
 
         {/* Global Modals */}
         <ShadeModal />

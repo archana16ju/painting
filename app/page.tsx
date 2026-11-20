@@ -3,14 +3,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { usePaintTerminalStore, PriceTier } from '@/store/usePaintTerminalStore';
 import { Product, PaintBrand, ProductCategory } from '@/types/paint';
-import AddCategoryModal from '@/components/AddCategoryModal';
-import AddBrandModal from '@/components/AddBrandModal';
-import AddContractorModal from '@/components/AddContractorModal';
-import EditContractorModal from '@/components/EditContractorModal';
-import AddProductModal from '@/components/AddProductModal';
-import EditProductModal from '@/components/EditProductModal';
-import ManageCategoriesBrandsModal from '@/components/ManageCategoriesBrandsModal';
-import BulkUploadModal from '@/components/BulkUploadModal';
 import {
   Search,
   ShoppingCart,
@@ -37,10 +29,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  FolderPlus,
-  Pencil,
   Phone,
-  Upload,
 } from 'lucide-react';
 
 const BRANDS: (PaintBrand | 'ALL')[] = [
@@ -117,7 +106,6 @@ export default function TerminalPage() {
     getSubtotal,
     getTotalTax,
     getGrandTotal,
-    isEditMode,
   } = usePaintTerminalStore();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -127,25 +115,9 @@ export default function TerminalPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [loading, setLoading] = useState(false);
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
-  const [isAddBrandOpen, setIsAddBrandOpen] = useState(false);
-  const [isAddContractorOpen, setIsAddContractorOpen] = useState(false);
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
-  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
-  const [manageModalTab, setManageModalTab] = useState<'categories' | 'brands'>('categories');
   const [contractors, setContractors] = useState<any[]>([]);
-  const [isEditContractorOpen, setIsEditContractorOpen] = useState(false);
-  const [editingContractor, setEditingContractor] = useState<any>(null);
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const handleEditProduct = (prod: Product) => {
-    setEditingProduct(prod);
-    setIsEditProductOpen(true);
-  };
 
   // Automatically place cursor in search bar whenever a category is selected
   useEffect(() => {
@@ -234,14 +206,6 @@ export default function TerminalPage() {
     }
   };
 
-  const handleCategoryCreated = (newCat: { id: string; name: string; iconName: string }) => {
-    setCategories((prev) => {
-      if (prev.some((c) => c.name.toLowerCase() === newCat.name.toLowerCase())) return prev;
-      return [...prev, newCat];
-    });
-    setSelectedCategory(newCat.name);
-  };
-
   // Filter products by brand, category, and search text
   const filteredProducts = products.filter((p) => {
     const matchesBrand = selectedBrand === 'ALL' || p.brand === selectedBrand;
@@ -299,30 +263,7 @@ export default function TerminalPage() {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Departments</span>
             <span className="text-xs font-extrabold text-slate-900">Categories</span>
           </div>
-          <div className="flex items-center gap-1">
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={() => {
-                  setManageModalTab('categories');
-                  setIsManageModalOpen(true);
-                }}
-                className="p-1 text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition animate-in fade-in"
-                title="Manage & Rename Categories"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsAddCategoryOpen(true)}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition shadow-2xs"
-              title="Add New Product Category"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Add</span>
-            </button>
-          </div>
+          <span className="text-[11px] font-mono text-slate-400 font-bold">{categories.length}</span>
         </div>
 
         {/* Category List */}
@@ -385,21 +326,6 @@ export default function TerminalPage() {
                   >
                     {count}
                   </span>
-                  {isEditMode && (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setManageModalTab('categories');
-                        setIsManageModalOpen(true);
-                      }}
-                      className={`p-0.5 rounded transition ${
-                        isSelected ? 'hover:bg-indigo-700 text-white' : 'hover:bg-amber-100 text-amber-700 bg-amber-50 border border-amber-200'
-                      }`}
-                      title="Rename category"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </span>
-                  )}
                 </div>
               </button>
             );
@@ -453,28 +379,6 @@ export default function TerminalPage() {
               )}
             </div>
 
-            {/* Quick Add Product Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddProductOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-xs whitespace-nowrap active:scale-98"
-              title="Add New Paint / Product"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Product</span>
-            </button>
-
-            {/* Bulk CSV Upload Button */}
-            <button
-              type="button"
-              onClick={() => setIsBulkUploadOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition shadow-2xs whitespace-nowrap active:scale-98"
-              title="Bulk Import Products via CSV"
-            >
-              <Upload className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">Bulk CSV</span>
-            </button>
-
             {/* View Switcher: Grid vs Table */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
               <button
@@ -514,18 +418,6 @@ export default function TerminalPage() {
         {/* Center Content Scroll Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 flex justify-center">
           <div className="w-full max-w-5xl space-y-4">
-            {/* Edit Mode Banner */}
-            {isEditMode && (
-              <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-center justify-between text-xs font-bold text-amber-900 shadow-2xs animate-in fade-in">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  <span>EDIT MODE IS ON: Settings and edit pencil icons are enabled near Categories, Brands, and Products.</span>
-                </div>
-                <span className="text-[10px] bg-amber-200/90 text-amber-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Admin Active
-                </span>
-              </div>
-            )}
             {loading ? (
               <div className="py-24 text-center text-slate-400 text-sm">Loading paint catalog...</div>
             ) : filteredProducts.length === 0 ? (
@@ -569,17 +461,6 @@ export default function TerminalPage() {
                             <span>HSN: <strong className="text-slate-600">{product.hsnCode}</strong></span>
                             <span>•</span>
                             <span>GST: <strong className="text-slate-600">{product.defaultTaxRate}%</strong></span>
-                            {isEditMode && (
-                              <button
-                                type="button"
-                                onClick={() => handleEditProduct(product)}
-                                className="inline-flex items-center gap-1 ml-1 px-2 py-0.5 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition animate-in fade-in"
-                                title="Edit product details, brand, category & prices"
-                              >
-                                <Pencil className="w-3 h-3 text-amber-600" />
-                                <span>Edit</span>
-                              </button>
-                            )}
                           </div>
                         </div>
 
@@ -670,17 +551,6 @@ export default function TerminalPage() {
                       <h3 className="font-extrabold text-sm sm:text-base text-slate-900 leading-snug">
                         {product.name}
                       </h3>
-                      {isEditMode && (
-                        <button
-                          type="button"
-                          onClick={() => handleEditProduct(product)}
-                          className="flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded transition shrink-0 cursor-pointer"
-                          title="Edit Product"
-                        >
-                          <Pencil className="w-3 h-3 text-amber-600" />
-                          <span>Edit</span>
-                        </button>
-                      )}
                     </div>
 
                     {/* Row 2: Brand, Category, and HSN Code directly under Product Name */}
@@ -818,33 +688,6 @@ export default function TerminalPage() {
               )}
             </button>
 
-            {/* Edit Contractor (Only in Edit Mode) */}
-            {isEditMode && selectedContractor && (
-              <button
-                type="button"
-                onClick={() => {
-                  const fullCont = contractors.find((c) => c.id === selectedContractor.id);
-                  setEditingContractor(fullCont || selectedContractor);
-                  setIsEditContractorOpen(true);
-                }}
-                className="p-2 text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition cursor-pointer shadow-2xs"
-                title="Edit Tagged Contractor Profile"
-              >
-                <Pencil className="w-3.5 h-3.5 text-amber-700" />
-              </button>
-            )}
-
-            {/* [+ Add] Contractor Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddContractorOpen(true)}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-              title="Add New Contractor"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Add</span>
-            </button>
-
             <button
               onClick={clearCart}
               title="Clear Cart"
@@ -928,16 +771,6 @@ export default function TerminalPage() {
                   ) : (
                     <div className="p-2.5 text-center text-xs text-slate-500">
                       <div>No contractor found with "{customerPhone}".</div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPhoneDropdown(false);
-                          setIsAddContractorOpen(true);
-                        }}
-                        className="mt-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                      >
-                        + Add "{customerPhone}" as new Contractor?
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1088,113 +921,6 @@ export default function TerminalPage() {
           </button>
         </div>
       </div>
-
-      {/* Add Category Modal */}
-      <AddCategoryModal
-        isOpen={isAddCategoryOpen}
-        onClose={() => setIsAddCategoryOpen(false)}
-        onCategoryCreated={handleCategoryCreated}
-      />
-
-      {/* Add Product Modal */}
-      <AddProductModal
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
-        categories={categories}
-        brands={brands}
-        onProductCreated={() => {
-          fetchProducts();
-          fetchBrands();
-        }}
-        onOpenAddCategory={() => {
-          setIsAddProductOpen(false);
-          setIsAddCategoryOpen(true);
-        }}
-        onOpenAddBrand={() => {
-          setIsAddProductOpen(false);
-          setIsAddBrandOpen(true);
-        }}
-      />
-
-      {/* Edit Product Modal */}
-      <EditProductModal
-        isOpen={isEditProductOpen}
-        onClose={() => {
-          setIsEditProductOpen(false);
-          setEditingProduct(null);
-        }}
-        product={editingProduct}
-        categories={categories}
-        brands={brands}
-        onProductUpdated={() => {
-          fetchProducts();
-          fetchCategories();
-          fetchBrands();
-        }}
-        onOpenAddCategory={() => {
-          setIsEditProductOpen(false);
-          setIsAddCategoryOpen(true);
-        }}
-        onOpenAddBrand={() => {
-          setIsEditProductOpen(false);
-          setIsAddBrandOpen(true);
-        }}
-      />
-
-      {/* Add Brand Modal */}
-      <AddBrandModal
-        isOpen={isAddBrandOpen}
-        onClose={() => setIsAddBrandOpen(false)}
-        onBrandCreated={(newBrand) => {
-          fetchBrands();
-          setSelectedBrand(newBrand.name as any);
-        }}
-      />
-
-      {/* Manage Categories & Brands Modal */}
-      <ManageCategoriesBrandsModal
-        isOpen={isManageModalOpen}
-        onClose={() => setIsManageModalOpen(false)}
-        initialTab={manageModalTab}
-        onUpdated={() => {
-          fetchCategories();
-          fetchBrands();
-          fetchProducts();
-        }}
-      />
-
-      {/* Add Contractor Modal */}
-      <AddContractorModal
-        isOpen={isAddContractorOpen}
-        onClose={() => setIsAddContractorOpen(false)}
-        onContractorAdded={() => {
-          fetchContractors();
-        }}
-      />
-
-      {/* Edit Contractor Modal */}
-      <EditContractorModal
-        isOpen={isEditContractorOpen}
-        onClose={() => {
-          setIsEditContractorOpen(false);
-          setEditingContractor(null);
-        }}
-        contractor={editingContractor}
-        onContractorUpdated={() => {
-          fetchContractors();
-        }}
-      />
-
-      {/* Bulk Product Upload Modal */}
-      <BulkUploadModal
-        isOpen={isBulkUploadOpen}
-        onClose={() => setIsBulkUploadOpen(false)}
-        onSuccess={() => {
-          fetchProducts();
-          fetchCategories();
-          fetchBrands();
-        }}
-      />
     </div>
   );
 }
