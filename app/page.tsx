@@ -642,108 +642,122 @@ export default function TerminalPage() {
                 })}
               </div>
             ) : (
-              /* High-Speed Table / List View: Every Pack Size has its OWN row with uniform height */
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                      <th className="py-2.5 px-4">Product Name & Line</th>
-                      {selectedCategory === 'ALL' && (
-                        <>
-                          <th className="py-2.5 px-3">Brand</th>
-                          <th className="py-2.5 px-3">Category</th>
-                        </>
-                      )}
-                      <th className="py-2.5 px-3 text-center">Pack Size</th>
-                      <th className="py-2.5 px-3 text-right">Rate</th>
-                      <th className="py-2.5 px-4 text-right">Add</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.flatMap((product) =>
-                      (product.packSizes && product.packSizes.length > 0
-                        ? product.packSizes.map((pack) => ({ product, pack }))
-                        : [{ product, pack: { id: 'single', productId: product.id, packSize: '1 Pc', barcode: '', mrp: 0, retailPrice: 0, contractorPrice: 0, wholesalePrice: 0, costPrice: 0, stockQty: 0, minStockAlert: 0 } }]
-                      )
-                    ).map(({ product, pack }) => {
-                      let activePrice = pack.retailPrice;
-                      if (priceTier === 'CONTRACTOR') activePrice = pack.contractorPrice;
-                      if (priceTier === 'WHOLESALE') activePrice = pack.wholesalePrice;
-                      const isOutOfStock = pack.stockQty <= 0;
-                      const isLowStock = pack.stockQty <= pack.minStockAlert;
-
-                      return (
-                        <tr key={`${product.id}_${pack.id}`} className="hover:bg-slate-50/80 transition">
-                          <td className="py-2 px-4">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-slate-900">{product.name}</span>
-                                  {selectedCategory !== 'ALL' && product.brand && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                                      {product.brand}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-slate-400 font-mono">HSN: {product.hsnCode}</div>
-                              </div>
-                              {isEditMode && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditProduct(product)}
-                                  className="p-1 text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition animate-in fade-in"
-                                  title="Edit Product"
-                                >
-                                  <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Brand & Category only shown in All Products menu */}
-                          {selectedCategory === 'ALL' && (
-                            <>
-                              <td className="py-2 px-3 font-semibold text-slate-700">{product.brand}</td>
-                              <td className="py-2 px-3 text-slate-500">{product.category}</td>
-                            </>
-                          )}
-
-                          {/* Pack Size with Stock count directly under it */}
-                          <td className="py-2 px-3 text-center font-mono">
-                            <span className="bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200 font-bold text-slate-800 whitespace-nowrap inline-block text-xs">
-                              {pack.packSize}
+              /* Grouped List View: One card per product, showing all pack sizes grouped underneath */
+              <div className="w-full space-y-3.5">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs transition overflow-hidden border-l-4 border-l-rose-500"
+                  >
+                    {/* Product Header */}
+                    <div className="p-3.5 sm:p-4 bg-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            {product.brand && (
+                              <span className="font-extrabold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 tracking-wide uppercase text-[10px]">
+                                {product.brand}
+                              </span>
+                            )}
+                            {product.category && (
+                              <span className="font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[10px]">
+                                {product.category}
+                              </span>
+                            )}
+                            <span className="text-[11px] font-mono text-slate-400">
+                              HSN: <strong className="text-slate-600">{product.hsnCode}</strong> • GST: <strong className="text-slate-600">{product.defaultTaxRate}%</strong>
                             </span>
-                            <div
-                              className={`text-[10px] font-medium mt-0.5 whitespace-nowrap ${
-                                isOutOfStock
-                                  ? 'text-rose-600 font-bold'
-                                  : isLowStock
-                                  ? 'text-amber-600 font-semibold'
-                                  : 'text-slate-500'
-                              }`}
-                            >
-                              {isOutOfStock ? '0 in stock' : `${pack.stockQty} in stock`}
-                            </div>
-                          </td>
+                          </div>
 
-                          <td className="py-2 px-3 text-right font-mono font-extrabold text-xs sm:text-sm text-indigo-700 whitespace-nowrap">
-                            ₹{activePrice.toLocaleString('en-IN')}
-                          </td>
-                          <td className="py-2 px-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => addToCart(product, pack)}
-                              className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-90 text-white font-black text-xs flex items-center justify-center transition shadow-2xs ml-auto"
-                              title="Add to cart"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          <h3 className="font-extrabold text-base sm:text-lg text-slate-900 leading-snug">
+                            {product.name}
+                          </h3>
+
+                          {product.description && (
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.description}</p>
+                          )}
+                        </div>
+
+                        {isEditMode && (
+                          <button
+                            type="button"
+                            onClick={() => handleEditProduct(product)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition shadow-2xs shrink-0 cursor-pointer"
+                            title="Edit Product"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Packaging Sizes Under Product Name */}
+                    <div className="p-3.5 sm:p-4 bg-slate-50/80 border-t border-slate-100 space-y-2">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                        Available Packaging & Can Sizes:
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5">
+                        {product.packSizes && product.packSizes.length > 0 ? (
+                          product.packSizes.map((pack) => {
+                            let activePrice = pack.retailPrice;
+                            if (priceTier === 'CONTRACTOR') activePrice = pack.contractorPrice;
+                            if (priceTier === 'WHOLESALE') activePrice = pack.wholesalePrice;
+
+                            const isLowStock = pack.stockQty <= pack.minStockAlert;
+                            const isOutOfStock = pack.stockQty <= 0;
+
+                            return (
+                              <div
+                                key={pack.id}
+                                className="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-xs transition flex items-center gap-3 shadow-2xs min-w-[170px]"
+                              >
+                                <div>
+                                  <span className="font-mono font-bold text-xs sm:text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 inline-block">
+                                    {pack.packSize}
+                                  </span>
+
+                                  <div
+                                    className={`text-[10px] font-medium mt-1 ${
+                                      isOutOfStock
+                                        ? 'text-rose-600 font-bold'
+                                        : isLowStock
+                                        ? 'text-amber-600 font-semibold'
+                                        : 'text-slate-500'
+                                    }`}
+                                  >
+                                    {isOutOfStock ? '0 in stock' : `${pack.stockQty} in stock`}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2.5 pl-2.5 border-l border-slate-100 ml-auto">
+                                  <div className="text-right">
+                                    <span className="text-[9px] text-slate-400 block -mb-0.5 font-medium">Rate</span>
+                                    <span className="font-mono font-black text-sm text-indigo-700 whitespace-nowrap">
+                                      ₹{activePrice.toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => addToCart(product, pack)}
+                                    className="w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-90 text-white font-black text-sm flex items-center justify-center transition shadow-2xs hover:shadow-sm shrink-0 cursor-pointer"
+                                    title="Add to cart"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-xs text-slate-400 italic py-1">No pack sizes available</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
