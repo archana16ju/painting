@@ -488,56 +488,8 @@ export default function TerminalPage() {
                 <span className="hidden md:inline text-[11px]">List</span>
               </button>
             </div>
-          </div>
 
-          {/* Row 2: Brand Pills */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Brands:</span>
-              {brands.map((brand) => (
-                <button
-                  key={brand}
-                  type="button"
-                  onClick={() => setSelectedBrand(brand as any)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                    selectedBrand === brand
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {brand}
-                </button>
-              ))}
-
-              {/* Add Brand Button */}
-              <button
-                type="button"
-                onClick={() => setIsAddBrandOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-400 transition whitespace-nowrap shadow-2xs cursor-pointer active:scale-95"
-                title="Create New Brand / Manufacturer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Add Brand</span>
-              </button>
-
-              {/* Rename Brands (Only in Edit Mode) */}
-              {isEditMode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManageModalTab('brands');
-                    setIsManageModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition whitespace-nowrap animate-in fade-in cursor-pointer"
-                  title="Rename or Manage Brands"
-                >
-                  <Pencil className="w-3 h-3 text-amber-600" />
-                  <span>Rename Brands</span>
-                </button>
-              )}
-            </div>
-
-            <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap hidden sm:inline">
+            <span className="text-[11px] text-slate-500 font-semibold whitespace-nowrap hidden sm:inline px-1">
               Showing {filteredProducts.length} products
             </span>
           </div>
