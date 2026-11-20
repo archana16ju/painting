@@ -43,6 +43,16 @@ const brands = [
   'General Hardware',
 ];
 
+// Helper to clean size and quote strings
+function cleanSize(str) {
+  if (!str) return str;
+  return str
+    .replace(/(\d+(?:\.\d+)?)\s*"/g, '$1 Inch')
+    .replace(/(\d+\/\d+)\s*"/g, '$1 Inch')
+    .replace(/"/g, '')
+    .trim();
+}
+
 // Helper to calculate pricing from DL / Inward Cost Price
 function makePack(prodId, size, dlPrice, barcode, stock = 20) {
   const cost = Number(dlPrice);
@@ -1473,10 +1483,11 @@ const runMigration = db.transaction(() => {
   `);
 
   for (const p of productsToImport) {
+    const cleanProdName = cleanSize(p.name);
     insertProdStmt.run(
       p.id,
       p.brand,
-      p.name,
+      cleanProdName,
       p.category,
       p.hsn || '3209',
       18.0,
@@ -1484,7 +1495,8 @@ const runMigration = db.transaction(() => {
     );
 
     for (const [size, cost] of Object.entries(p.packs)) {
-      const pk = makePack(p.id, size, cost, null, 25);
+      const cleanPackSize = cleanSize(size);
+      const pk = makePack(p.id, cleanPackSize, cost, null, 25);
       insertPackStmt.run(
         pk.id,
         pk.productId,

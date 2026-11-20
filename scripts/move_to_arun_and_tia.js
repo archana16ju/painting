@@ -16,14 +16,11 @@ if (!existingBrand) {
   console.log('Brand Arun & Tia already exists:', existingBrand);
 }
 
-// Move existing Duke Gold & Asmaco products to Arun & Tia
-const moveStmt = db.prepare("UPDATE products SET brand = 'Arun & Tia' WHERE brand IN ('Duke Gold', 'Asmaco')");
-const moveResult = moveStmt.run();
-console.log(`Updated ${moveResult.changes} products to brand 'Arun & Tia'`);
-
-// Delete Duke Gold and Asmaco from brands table
+// Delete previous Arun & Tia / Duke Gold / Asmaco products so there are 0 duplicates
+db.prepare("DELETE FROM product_pack_sizes WHERE product_id IN (SELECT id FROM products WHERE brand IN ('Arun & Tia', 'Duke Gold', 'Asmaco'))").run();
+db.prepare("DELETE FROM products WHERE brand IN ('Arun & Tia', 'Duke Gold', 'Asmaco')").run();
 db.prepare("DELETE FROM brands WHERE name IN ('Duke Gold', 'Asmaco')").run();
-console.log('Removed Duke Gold and Asmaco from brands table');
+console.log('Cleaned old Arun & Tia / Duke Gold / Asmaco products');
 
 // Helper to calculate pricing
 function makePack(prodId, size, dlPrice, barcode, stock = 25) {
@@ -48,15 +45,39 @@ function makePack(prodId, size, dlPrice, barcode, stock = 25) {
   };
 }
 
+function cleanSize(str) {
+  if (!str) return str;
+  return str
+    .replace(/(\d+(?:\.\d+)?)\s*"/g, '$1 Inch')
+    .replace(/"/g, '')
+    .trim();
+}
+
 const insertProduct = db.prepare(`
-  INSERT OR REPLACE INTO products (id, brand, name, category, hsn_code, default_tax_rate, description, is_active)
+  INSERT INTO products (id, brand, name, category, hsn_code, default_tax_rate, description, is_active)
   VALUES (?, 'Arun & Tia', ?, ?, ?, 18.0, ?, 1)
+  ON CONFLICT(id) DO UPDATE SET
+    brand = 'Arun & Tia',
+    name = excluded.name,
+    category = excluded.category,
+    hsn_code = excluded.hsn_code,
+    description = excluded.description
 `);
 
 const insertPack = db.prepare(`
-  INSERT OR REPLACE INTO product_pack_sizes (
+  INSERT INTO product_pack_sizes (
     id, product_id, pack_size, barcode, mrp, retail_price, contractor_price, wholesale_price, cost_price, stock_qty, min_stock_alert
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET
+    pack_size = excluded.pack_size,
+    barcode = excluded.barcode,
+    mrp = excluded.mrp,
+    retail_price = excluded.retail_price,
+    contractor_price = excluded.contractor_price,
+    wholesale_price = excluded.wholesale_price,
+    cost_price = excluded.cost_price,
+    stock_qty = excluded.stock_qty,
+    min_stock_alert = excluded.min_stock_alert
 `);
 
 // All 140 numbered items from the Arun Brush & Tia Rollers PDF:
@@ -242,15 +263,18 @@ console.log('Inserting / updating all 140 products under brand Arun & Tia...');
 
 const tx = db.transaction(() => {
   for (const item of allArunTiaItems) {
+    const cleanName = cleanSize(item.name);
+    const cleanPack = cleanSize(item.size);
+
     insertProduct.run(
       item.id,
-      item.name,
+      cleanName,
       item.cat,
       item.hsn,
-      `Authorized product from Arun Brush & Tia Rollers catalog (${item.size})`
+      `Authorized product from Arun Brush & Tia Rollers catalog (${cleanPack})`
     );
 
-    const pk = makePack(item.id, item.size, item.dl, null, 30);
+    const pk = makePack(item.id, cleanPack, item.dl, null, 30);
     insertPack.run(
       pk.id,
       pk.productId,

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Save, CheckCircle2, Store, Printer, QrCode, Upload, Download, FileSpreadsheet, AlertCircle, RefreshCw } from 'lucide-react';
+import { Settings, Save, CheckCircle2, Store, Printer, QrCode, Upload, FileSpreadsheet, AlertCircle, RefreshCw, AlertTriangle, Trash2, KeyRound, Lock, X, ShieldAlert } from 'lucide-react';
 
 export default function SettingsPage() {
   const [formData, setFormData] = useState({
@@ -28,6 +28,13 @@ export default function SettingsPage() {
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Reset Database State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -80,55 +87,93 @@ export default function SettingsPage() {
     }
   };
 
-  // Download complete bulk upload CSV with all 785 products from PDF
-  const downloadAllProductsCsv = () => {
-    window.location.href = '/api/products/export-csv';
+  const handleResetDatabase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetError(null);
+
+    try {
+      const res = await fetch('/api/settings/reset-database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to reset database');
+      }
+
+      setIsResetModalOpen(false);
+      setResetPassword('');
+      setParsedRows([]);
+      setCsvFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setResetSuccessMessage(data.message || 'Database reset successfully with zero data.');
+      setTimeout(() => setResetSuccessMessage(null), 10000);
+    } catch (err: any) {
+      setResetError(err.message || 'Error resetting database');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
-  // Parse CSV Helper
+  // Robust RFC-4180 CSV parser Helper
   const parseCsvText = (text: string) => {
-    const lines = text
-      .split(/\r\n|\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    const cleanContent = text.replace(/^\uFEFF/, '');
+    const rows: string[][] = [];
+    let row: string[] = [''];
+    let inQuotes = false;
 
-    if (lines.length < 2) return [];
+    for (let i = 0; i < cleanContent.length; i++) {
+      const c = cleanContent[i];
+      const next = cleanContent[i + 1];
 
-    // Parse header line handling quotes
-    const parseLine = (line: string) => {
-      const result: string[] = [];
-      let cur = '';
-      let insideQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"' || char === "'") {
-          insideQuotes = !insideQuotes;
-        } else if (char === ',' && !insideQuotes) {
-          result.push(cur.trim());
-          cur = '';
+      if (inQuotes) {
+        if (c === '"' && next === '"') {
+          row[row.length - 1] += '"';
+          i++;
+        } else if (c === '"') {
+          inQuotes = false;
         } else {
-          cur += char;
+          row[row.length - 1] += c;
+        }
+      } else {
+        if (c === '"') {
+          inQuotes = true;
+        } else if (c === ',') {
+          row.push('');
+        } else if (c === '\r' || c === '\n') {
+          if (c === '\r' && next === '\n') i++;
+          if (row.length > 1 || (row.length === 1 && row[0].trim() !== '')) {
+            rows.push(row.map((v) => v.trim()));
+          }
+          row = [''];
+        } else {
+          row[row.length - 1] += c;
         }
       }
-      result.push(cur.trim());
-      return result;
-    };
+    }
+    if (row.length > 1 || (row.length === 1 && row[0].trim() !== '')) {
+      rows.push(row.map((v) => v.trim()));
+    }
 
-    const headers = parseLine(lines[0]).map((h) => h.replace(/["']/g, '').trim());
+    if (rows.length < 2) return [];
 
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseLine(lines[i]).map((v) => v.replace(/^["']|["']$/g, '').trim());
+    const headers = rows[0].map((h) => h.replace(/["']/g, '').trim());
+    const parsed: any[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
       if (values.length === 0 || (values.length === 1 && !values[0])) continue;
 
       const rowObj: any = {};
       headers.forEach((h, index) => {
-        rowObj[h] = values[index] || '';
+        rowObj[h] = values[index] !== undefined ? values[index] : '';
       });
-      rows.push(rowObj);
+      parsed.push(rowObj);
     }
 
-    return rows;
+    return parsed;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,26 +198,44 @@ export default function SettingsPage() {
     setUploadResult(null);
 
     try {
-      const res = await fetch('/api/products/bulk-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: parsedRows }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setUploadResult({
-          success: true,
-          message: data.message || `Successfully imported ${data.importedCount} products!`,
+      const batchSize = 150;
+      let totalImported = 0;
+      let totalPacks = 0;
+
+      for (let i = 0; i < parsedRows.length; i += batchSize) {
+        const batch = parsedRows.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(parsedRows.length / batchSize);
+
+        const res = await fetch('/api/products/bulk-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: batch }),
         });
-        setCsvFile(null);
-        setParsedRows([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      } else {
-        setUploadResult({
-          success: false,
-          message: data.error || 'Failed to import products',
-        });
+
+        const resText = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150) || 'Empty response'}`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `Failed uploading batch ${batchNum} of ${totalBatches}`);
+        }
+
+        totalImported += data.importedCount || batch.length;
+        totalPacks += data.packCount || batch.length;
       }
+
+      setUploadResult({
+        success: true,
+        message: `Successfully imported ${totalImported} products (${totalPacks} pack sizes)!`,
+      });
+      setCsvFile(null);
+      setParsedRows([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
       setUploadResult({
         success: false,
@@ -190,11 +253,26 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 bg-slate-50 flex justify-center">
       <div className="w-full max-w-3xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-6 h-6 text-indigo-600" /> Store Profile & Invoicing Setup
-          </h1>
-          <p className="text-xs text-slate-500">Configure your paint shop header, GSTIN, invoice prefix, and UPI details</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Settings className="w-6 h-6 text-indigo-600" /> Store Profile & Invoicing Setup
+            </h1>
+            <p className="text-xs text-slate-500">Configure your paint shop header, GSTIN, invoice prefix, and UPI details</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setResetError(null);
+              setResetPassword('');
+              setIsResetModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded-xl transition shadow-2xs whitespace-nowrap self-start sm:self-auto cursor-pointer"
+            title="Wipe database to zero data before new CSV upload"
+          >
+            <Trash2 className="w-4 h-4 text-red-600" /> Reset Database (0 Data)
+          </button>
         </div>
 
         {savedSuccess && (
@@ -365,13 +443,20 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={downloadAllProductsCsv}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-xs whitespace-nowrap self-start sm:self-auto cursor-pointer"
-            >
-              <Download className="w-4 h-4" /> Download Full CSV (785 Items)
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetError(null);
+                  setResetPassword('');
+                  setIsResetModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition cursor-pointer"
+                title="Wipe old database before new upload"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" /> Reset to 0 Data
+              </button>
+            </div>
           </div>
 
           {/* Required CSV Columns Guide */}
@@ -535,7 +620,144 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* ============================================================== */}
+        {/* Danger Zone: Reset Database to Zero Data                       */}
+        {/* ============================================================== */}
+        <div className="bg-red-50/60 rounded-2xl border-2 border-red-200 shadow-xs p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-100 text-red-700 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <h2 className="text-base font-extrabold text-red-950">
+                  Danger Zone: Reset Database (Zero Data)
+                </h2>
+              </div>
+              <p className="text-xs text-red-800 leading-relaxed max-w-2xl">
+                Wipes all existing products, inventory pack sizes, sales invoices, contractors, and categories so the database restarts with <strong>zero (0) data</strong>. Use this before uploading a fresh bulk CSV file.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setResetError(null);
+                setResetPassword('');
+                setIsResetModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-xl transition shadow-xs whitespace-nowrap self-start sm:self-auto cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" /> Reset Database to 0 Data
+            </button>
+          </div>
+
+          {resetSuccessMessage && (
+            <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-950 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{resetSuccessMessage}</span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Reset Database Password Confirmation Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-red-200 overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-red-100 bg-red-50 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-red-100 text-red-700 flex items-center justify-center font-bold">
+                  <ShieldAlert className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-red-950">Confirm Database Reset</h3>
+                  <p className="text-[11px] text-red-700">Wipe all products and restart with zero data</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-red-100/50 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleResetDatabase} className="p-5 space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Warning: Permanent Deletion</span>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  This will permanently delete all products, pack sizes, sales invoices, contractors, and stock. The database will restart with 0 items so you can upload your new bulk CSV file.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+                  Enter Admin Password to Confirm
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    placeholder="Enter default password..."
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 font-mono"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Default password: <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">admin123</span>
+                </p>
+              </div>
+
+              {resetError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading || !resetPassword}
+                  className="px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-xl transition shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {resetLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Wiping Database...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" /> Confirm & Reset Everything to 0
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

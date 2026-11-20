@@ -244,6 +244,10 @@ function initSchema(db: Database.Database) {
 }
 
 function seedCategories(db: Database.Database) {
+  // Only seed on initial virgin installation before shop settings exist
+  const existingSettings = db.prepare('SELECT id FROM shop_settings LIMIT 1').get();
+  if (existingSettings) return;
+
   const row = db.prepare('SELECT COUNT(*) as count FROM categories').get() as { count: number };
   if (row.count === 0) {
     const insertCat = db.prepare('INSERT OR IGNORE INTO categories (id, name, icon_name) VALUES (?, ?, ?)');
@@ -268,6 +272,10 @@ function seedCategories(db: Database.Database) {
 }
 
 function seedBrands(db: Database.Database) {
+  // Only seed on initial virgin installation before shop settings exist
+  const existingSettings = db.prepare('SELECT id FROM shop_settings LIMIT 1').get();
+  if (existingSettings) return;
+
   const row = db.prepare('SELECT COUNT(*) as count FROM brands').get() as { count: number };
   if (row.count === 0) {
     const insertBrand = db.prepare('INSERT OR IGNORE INTO brands (id, name) VALUES (?, ?)');

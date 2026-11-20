@@ -121,20 +121,8 @@ export default function TerminalPage() {
   } = usePaintTerminalStore();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>(DEFAULT_CATEGORIES);
-  const [brands, setBrands] = useState<string[]>([
-    'ALL',
-    'Surfa Coats',
-    'Arun & Tia',
-    'JK Cement',
-    'JK WhiteMaxX',
-    'Surya Cem',
-    'Udhayas Cem',
-    'Pilot',
-    'Butterfly Paints',
-    'Ajax',
-    'General Hardware',
-  ]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [brands, setBrands] = useState<string[]>(['ALL']);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -181,7 +169,7 @@ export default function TerminalPage() {
     try {
       const res = await fetch('/api/brands');
       const data = await res.json();
-      if (data.success && Array.isArray(data.brands) && data.brands.length > 0) {
+      if (data.success && Array.isArray(data.brands)) {
         setBrands(['ALL', ...data.brands.map((b: any) => b.name)]);
       }
     } catch (err) {
@@ -214,7 +202,7 @@ export default function TerminalPage() {
     try {
       const res = await fetch('/api/categories');
       const data = await res.json();
-      if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+      if (data.success && Array.isArray(data.categories)) {
         setCategories(data.categories);
       }
     } catch (err) {

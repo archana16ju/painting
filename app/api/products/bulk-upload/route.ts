@@ -26,14 +26,35 @@ export async function POST(req: Request) {
     `);
 
     const insertProd = db.prepare(`
-      INSERT OR REPLACE INTO products (id, brand, name, category, hsn_code, default_tax_rate, description, is_active)
+      INSERT INTO products (id, brand, name, category, hsn_code, default_tax_rate, description, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      ON CONFLICT(id) DO UPDATE SET
+        brand = excluded.brand,
+        name = excluded.name,
+        category = excluded.category,
+        hsn_code = excluded.hsn_code,
+        default_tax_rate = excluded.default_tax_rate,
+        description = excluded.description
     `);
 
     const insertPack = db.prepare(`
-      INSERT OR REPLACE INTO product_pack_sizes (
+      INSERT INTO product_pack_sizes (
         id, product_id, pack_size, barcode, mrp, retail_price, contractor_price, wholesale_price, cost_price, stock_qty, min_stock_alert
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        pack_size = excluded.pack_size,
+        barcode = excluded.barcode,
+        mrp = excluded.mrp,
+        retail_price = excluded.retail_price,
+        contractor_price = excluded.contractor_price,
+        wholesale_price = excluded.wholesale_price,
+        cost_price = excluded.cost_price,
+        stock_qty = excluded.stock_qty,
+        min_stock_alert = excluded.min_stock_alert
+    `);
+
+    const checkBarcode = db.prepare(`
+      SELECT id FROM product_pack_sizes WHERE barcode = ? AND id != ? LIMIT 1
     `);
 
     let importedCount = 0;
@@ -83,11 +104,20 @@ export async function POST(req: Request) {
           if (mrp <= 0) mrp = Math.round(retailPrice * 1.10);
         }
 
-        const barcode = (row.barcode || row.Barcode || '').trim() || `89088${Math.floor(10000000 + Math.random() * 90000000)}`;
+        const packId = `pk_${prodId}_${packSize.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        let barcode = (row.barcode || row.Barcode || '').trim();
+        if (!barcode) {
+          barcode = `89088${Math.floor(10000000 + Math.random() * 90000000)}`;
+        } else {
+          const clash = checkBarcode.get(barcode, packId);
+          if (clash) {
+            barcode = `89088${Math.floor(10000000 + Math.random() * 90000000)}`;
+          }
+        }
+
         const stockQty = parseFloat(row.stock_qty || row.stock || row.StockQty || row['Stock Qty'] || '20') || 20;
         const minAlert = parseFloat(row.min_stock_alert || row.minStockAlert || row.MinStockAlert || row['Min Stock Alert'] || '3') || 3;
 
-        const packId = `pk_${prodId}_${packSize.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
         insertPack.run(
           packId,
           prodId,

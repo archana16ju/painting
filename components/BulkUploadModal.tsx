@@ -39,47 +39,61 @@ export default function BulkUploadModal({
   };
 
   const parseCsvText = (text: string) => {
-    const lines = text
-      .split(/\r\n|\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    const cleanContent = text.replace(/^\uFEFF/, '');
+    const rows: string[][] = [];
+    let row: string[] = [''];
+    let inQuotes = false;
 
-    if (lines.length < 2) return [];
+    for (let i = 0; i < cleanContent.length; i++) {
+      const c = cleanContent[i];
+      const next = cleanContent[i + 1];
 
-    const parseLine = (line: string) => {
-      const result: string[] = [];
-      let cur = '';
-      let insideQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"' || char === "'") {
-          insideQuotes = !insideQuotes;
-        } else if (char === ',' && !insideQuotes) {
-          result.push(cur.trim());
-          cur = '';
+      if (inQuotes) {
+        if (c === '"' && next === '"') {
+          row[row.length - 1] += '"';
+          i++;
+        } else if (c === '"') {
+          inQuotes = false;
         } else {
-          cur += char;
+          row[row.length - 1] += c;
+        }
+      } else {
+        if (c === '"') {
+          inQuotes = true;
+        } else if (c === ',') {
+          row.push('');
+        } else if (c === '\r' || c === '\n') {
+          if (c === '\r' && next === '\n') i++;
+          if (row.length > 1 || (row.length === 1 && row[0].trim() !== '')) {
+            rows.push(row.map((v) => v.trim()));
+          }
+          row = [''];
+        } else {
+          row[row.length - 1] += c;
         }
       }
-      result.push(cur.trim());
-      return result;
-    };
+    }
+    if (row.length > 1 || (row.length === 1 && row[0].trim() !== '')) {
+      rows.push(row.map((v) => v.trim()));
+    }
 
-    const headers = parseLine(lines[0]).map((h) => h.replace(/["']/g, '').trim());
+    if (rows.length < 2) return [];
 
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseLine(lines[i]).map((v) => v.replace(/^["']|["']$/g, '').trim());
+    const headers = rows[0].map((h) => h.replace(/["']/g, '').trim());
+    const parsed: any[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
       if (values.length === 0 || (values.length === 1 && !values[0])) continue;
 
       const rowObj: any = {};
       headers.forEach((h, index) => {
-        rowObj[h] = values[index] || '';
+        rowObj[h] = values[index] !== undefined ? values[index] : '';
       });
-      rows.push(rowObj);
+      parsed.push(rowObj);
     }
 
-    return rows;
+    return parsed;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,27 +118,45 @@ export default function BulkUploadModal({
     setUploadResult(null);
 
     try {
-      const res = await fetch('/api/products/bulk-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: parsedRows }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setUploadResult({
-          success: true,
-          message: data.message || `Successfully imported ${data.importedCount} products!`,
+      const batchSize = 150;
+      let totalImported = 0;
+      let totalPacks = 0;
+
+      for (let i = 0; i < parsedRows.length; i += batchSize) {
+        const batch = parsedRows.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(parsedRows.length / batchSize);
+
+        const res = await fetch('/api/products/bulk-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: batch }),
         });
-        setCsvFile(null);
-        setParsedRows([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (onSuccess) onSuccess();
-      } else {
-        setUploadResult({
-          success: false,
-          message: data.error || 'Failed to import products',
-        });
+
+        const resText = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          throw new Error(`Server returned unexpected response (status ${res.status}): ${resText.slice(0, 150) || 'Empty response'}`);
+        }
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `Failed uploading batch ${batchNum} of ${totalBatches}`);
+        }
+
+        totalImported += data.importedCount || batch.length;
+        totalPacks += data.packCount || batch.length;
       }
+
+      setUploadResult({
+        success: true,
+        message: `Successfully imported ${totalImported} products (${totalPacks} pack sizes)!`,
+      });
+      setCsvFile(null);
+      setParsedRows([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (onSuccess) onSuccess();
     } catch (err: any) {
       setUploadResult({
         success: false,
